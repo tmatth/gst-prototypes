@@ -1,0 +1,12 @@
+Make sure you have libgstreamer-0.10-dev and libgstrtspserver-0.10-dev installed.
+
+run "make"
+Then run
+
+./camera-server
+
+in one shell and
+
+./client.sh 
+
+in another.

@@ -18,9 +18,35 @@
  */
 
 #include <gst/gst.h>
+namespace {
+volatile int interrupted = 0; // caught signals will be stored here
+void terminateSignalHandler(int sig)
+{
+    interrupted = sig;
+}
+
+void attachInterruptHandlers()
+{
+    // attach interrupt handlers
+    signal(SIGINT, &terminateSignalHandler);
+    signal(SIGTERM, &terminateSignalHandler);
+}
+}
+
+gboolean
+timeout (GMainLoop *loop, gboolean /*ignored*/)
+{
+    if (interrupted)
+    {
+        g_print("Interrupted\n");
+        g_main_loop_quit(loop);
+    }
+    return TRUE;
+}
 
 int main (int argc, char *argv[])
 {
+    attachInterruptHandlers();
     gst_init(&argc, &argv);
 
     GstElement *pipeline = gst_parse_launch("uridecodebin uri=rtsp://localhost:8554/test ! ffmpegcolorspace ! xvimagesink sync=false", 0);
@@ -32,12 +58,18 @@ int main (int argc, char *argv[])
     }
 
     GMainLoop *loop = g_main_loop_new (NULL, FALSE);
+
+    /* add a timeout to check the interrupted variable */
+    g_timeout_add_seconds(1, (GSourceFunc) timeout, loop);
+
     /* start loop */
     g_main_loop_run (loop);
 
     /* clean up */
     gst_element_set_state (pipeline, GST_STATE_NULL);
     gst_object_unref (pipeline);
+
+    g_print("Client exitting...\n");
 
     return 0;
 }

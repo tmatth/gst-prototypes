@@ -10,3 +10,7 @@ in one shell and
 ./client.sh 
 
 in another.
+
+You can also test with vlc as client with the following:
+vlc --rtsp-caching 10 rtsp://127.0.0.1:8554/test
+

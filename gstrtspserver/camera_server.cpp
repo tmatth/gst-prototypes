@@ -20,8 +20,35 @@
  */
 
 #include <gst/gst.h>
+#include <gtk/gtk.h>
+#include <signal.h>
 
 #include <gst/rtsp-server/rtsp-server.h>
+
+namespace {
+volatile int interrupted = 0; // caught signals will be stored here
+void terminateSignalHandler(int sig)
+{
+    interrupted = sig;
+}
+
+void attachInterruptHandlers()
+{
+    // attach interrupt handlers
+    signal(SIGINT, &terminateSignalHandler);
+    signal(SIGTERM, &terminateSignalHandler);
+}
+
+} // end anonymous namespace
+
+void cleanSessions(GstRTSPServer *server)
+{
+  GstRTSPSessionPool *pool;
+
+  pool = gst_rtsp_server_get_session_pool (server);
+  gst_rtsp_session_pool_cleanup (pool);
+  g_object_unref (pool);
+}
 
 /* this timeout is periodically run to clean up the expired sessions from the
  * pool. This needs to be run explicitly currently but might be done
@@ -29,26 +56,26 @@
 static gboolean
 timeout (GstRTSPServer * server, gboolean /*ignored*/)
 {
-  GstRTSPSessionPool *pool;
+  cleanSessions(server);
 
-  pool = gst_rtsp_server_get_session_pool (server);
-  gst_rtsp_session_pool_cleanup (pool);
-  g_object_unref (pool);
-
+  if (interrupted)
+  {
+      g_print("Interrupted, quitting...\n");
+      gtk_main_quit();
+  }
   return TRUE;
 }
 
 int
 main (int argc, char *argv[])
 {
-  GMainLoop *loop;
+  attachInterruptHandlers();
+
   GstRTSPServer *server;
   GstRTSPMediaMapping *mapping;
   GstRTSPMediaFactory *factory;
 
   gst_init (&argc, &argv);
-
-  loop = g_main_loop_new (NULL, FALSE);
 
   /* create a server instance */
   server = gst_rtsp_server_new ();
@@ -63,11 +90,11 @@ main (int argc, char *argv[])
    * element with pay%d names will be a stream */
   factory = gst_rtsp_media_factory_new ();
   gst_rtsp_media_factory_set_launch (factory, "( "
-      "v4l2src ! video/x-raw-yuv,width=640,height=480,framerate=30/1 ! "
+      "videotestsrc ! video/x-raw-yuv,width=640,height=480,framerate=30/1,format=\\(fourcc\\)YV12 ! "
       "ffmpegcolorspace ! ffenc_mpeg4 bitrate=3000000 ! rtpmp4vpay name=pay0 pt=96 )");
 
   // allow multiple clients to see the same video
-  gst_rtsp_media_factory_set_shared ( GST_RTSP_MEDIA_FACTORY (factory), TRUE);
+  //gst_rtsp_media_factory_set_shared ( GST_RTSP_MEDIA_FACTORY (factory), TRUE);
 
   /* attach the test factory to the /test url */
   gst_rtsp_media_mapping_add_factory (mapping, "/test", factory);
@@ -83,10 +110,12 @@ main (int argc, char *argv[])
   }
 
   /* add a timeout for the session cleanup */
-  g_timeout_add_seconds (2, (GSourceFunc) timeout, server);
+  g_timeout_add_seconds(1, (GSourceFunc) timeout, server);
 
   /* start serving, this never stops */
-  g_main_loop_run (loop);
+  gtk_main();
+  
+  cleanSessions(server);
 
   return 0;
 }

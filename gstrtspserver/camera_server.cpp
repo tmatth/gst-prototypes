@@ -39,8 +39,6 @@ void attachInterruptHandlers()
     signal(SIGTERM, &terminateSignalHandler);
 }
 
-} // end anonymous namespace
-
 void cleanSessions(GstRTSPServer *server)
 {
   GstRTSPSessionPool *pool;
@@ -53,7 +51,7 @@ void cleanSessions(GstRTSPServer *server)
 /* this timeout is periodically run to clean up the expired sessions from the
  * pool. This needs to be run explicitly currently but might be done
  * automatically as part of the mainloop. */
-static gboolean
+gboolean
 timeout (GstRTSPServer * server, gboolean /*ignored*/)
 {
   cleanSessions(server);
@@ -65,6 +63,8 @@ timeout (GstRTSPServer * server, gboolean /*ignored*/)
   }
   return TRUE;
 }
+
+} // end anonymous namespace
 
 int
 main (int argc, char *argv[])
@@ -90,7 +90,7 @@ main (int argc, char *argv[])
    * element with pay%d names will be a stream */
   factory = gst_rtsp_media_factory_new ();
   gst_rtsp_media_factory_set_launch (factory, "( "
-      "v4l2src ! video/x-raw-yuv,width=640,height=480,framerate=30/1,format=\\(fourcc\\)YV12 ! "
+      "v4l2src ! video/x-raw-yuv,width=640,height=480,framerate=30/1,format=(fourcc)YV12 ! "
       "ffmpegcolorspace ! ffenc_mpeg4 bitrate=3000000 ! rtpmp4vpay name=pay0 pt=96 )");
 
   // allow multiple clients to see the same video

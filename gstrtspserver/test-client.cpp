@@ -18,6 +18,14 @@
  */
 
 #include <gst/gst.h>
+#include <unistd.h>
+
+struct Client {
+    GstElement *pipeline;
+    GstElement *rtpbin;
+    GMainLoop *loop;
+};
+
 namespace {
 volatile int interrupted = 0; // caught signals will be stored here
 void terminateSignalHandler(int sig)
@@ -31,43 +39,105 @@ void attachInterruptHandlers()
     signal(SIGINT, &terminateSignalHandler);
     signal(SIGTERM, &terminateSignalHandler);
 }
-}
 
 gboolean
-timeout (GMainLoop *loop, gboolean /*ignored*/)
+timeout (Client *client, gboolean /*ignored*/)
 {
+    g_object_set(client->rtpbin, "latency", 25, NULL);
     if (interrupted)
     {
         g_print("Interrupted\n");
-        g_main_loop_quit(loop);
+        g_main_loop_quit(client->loop);
     }
     return TRUE;
 }
+
+gboolean bus_call(GstBus * /*bus*/, GstMessage *msg, void *user_data)
+{
+    Client *context = static_cast<Client*>(user_data);
+
+    switch (GST_MESSAGE_TYPE(msg)) 
+    {
+        case GST_MESSAGE_EOS: 
+            {
+                g_message("End-of-stream");
+                g_main_loop_quit(context->loop);
+                break;
+            }
+
+        case GST_MESSAGE_LATENCY:
+            {
+                // when pipeline latency is changed, this msg is posted on the bus. we then have
+                // to explicitly tell the pipeline to recalculate its latency
+                if (!gst_bin_recalculate_latency (GST_BIN(context->pipeline)))
+                    g_print("Could not reconfigure latency.\n");
+                else
+                    g_print("Reconfigured latency.\n");
+                break;
+            }
+        case GST_MESSAGE_ERROR: 
+            {
+                GError *err;
+                gst_message_parse_error(msg, &err, NULL);
+                g_error("%s", err->message);
+                g_error_free(err);
+
+                g_main_loop_quit(context->loop);
+
+                break;
+
+            }
+
+        default:
+            break;
+    }
+
+    return TRUE;
+}
+} // end anonymous namespace
 
 int main (int argc, char *argv[])
 {
     attachInterruptHandlers();
     gst_init(&argc, &argv);
+    Client client;
 
-    GstElement *pipeline = gst_parse_launch("uridecodebin uri=rtsp://localhost:8554/test ! ffmpegcolorspace ! xvimagesink sync=false", 0);
+    client.pipeline = gst_parse_launch("uridecodebin uri=rtsp://localhost:8554/test buffer-size=60 name=decode ! ffmpegcolorspace ! xvimagesink decode. ! audioconvert ! autoaudiosink buffer-time=15000", 0);
+
+    // add bus call
+    GstBus *bus = gst_pipeline_get_bus(GST_PIPELINE(client.pipeline));
+    gst_bus_add_watch(bus, bus_call, &client);
+    gst_object_unref(bus);
+
     /* run */
-    GstStateChangeReturn ret = gst_element_set_state (pipeline, GST_STATE_PLAYING);
+    GstStateChangeReturn ret = gst_element_set_state (client.pipeline, GST_STATE_PLAYING);
+    client.rtpbin = 0;
+
+    int tries = 0;
+    while (client.rtpbin == 0 and tries < 10)
+    {
+        client.rtpbin = gst_bin_get_by_name (GST_BIN(client.pipeline), "rtpbin0");
+        usleep(1000);
+        tries++;
+    }
+    g_assert(client.rtpbin);
+
     if (ret == GST_STATE_CHANGE_FAILURE) {
         g_print ("Failed to start up pipeline!\n");
         return 1;
     }
 
-    GMainLoop *loop = g_main_loop_new (NULL, FALSE);
+    client.loop = g_main_loop_new (NULL, FALSE);
 
     /* add a timeout to check the interrupted variable */
-    g_timeout_add_seconds(1, (GSourceFunc) timeout, loop);
+    g_timeout_add_seconds(1, (GSourceFunc) timeout, &client);
 
     /* start loop */
-    g_main_loop_run (loop);
+    g_main_loop_run (client.loop);
 
     /* clean up */
-    gst_element_set_state (pipeline, GST_STATE_NULL);
-    gst_object_unref (pipeline);
+    gst_element_set_state (client.pipeline, GST_STATE_NULL);
+    gst_object_unref (client.pipeline);
 
     g_print("Client exitting...\n");
 

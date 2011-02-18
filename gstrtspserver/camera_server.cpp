@@ -102,8 +102,9 @@ main (int argc, char *argv[])
   /* don't need the ref to the mapper anymore */
   g_object_unref (mapping);
 
+  guint id;
   /* attach the server to the default maincontext */
-  if (gst_rtsp_server_attach (server, NULL) == 0)
+  if ((id = gst_rtsp_server_attach (server, NULL)) == 0)
   {
     g_print ("failed to attach the server\n");
     return -1;
@@ -114,8 +115,14 @@ main (int argc, char *argv[])
 
   /* start serving, this never stops */
   gtk_main();
+
+  // cleanup
   
   cleanSessions(server);
+
+  g_source_remove(id);
+  g_object_unref(server);
+  g_print("Exitting...\n");
 
   return 0;
 }

@@ -90,9 +90,9 @@ main (int argc, char *argv[])
    * element with pay%d names will be a stream */
   factory = gst_rtsp_media_factory_new ();
   gst_rtsp_media_factory_set_launch (factory, "( "
-      "v4l2src ! video/x-raw-yuv,width=640,height=480,framerate=30/1,format=(fourcc)YV12 ! "
+      "v4l2src ! video/x-raw-yuv,width=640,height=480,framerate=30/1,format=(fourcc)UYVY ! "
       "ffmpegcolorspace ! ffenc_mpeg4 bitrate=3000000 ! rtpmp4vpay name=pay0 pt=96 "
-      "autoaudiosrc ! audioconvert ! rtpL16pay max-ptime=2000000 name=pay1 pt=97 )");
+      "autoaudiosrc ! audioconvert ! rtpL16pay max-ptime=2000000 name=pay1 )");
 
   // allow multiple clients to see the same video
   gst_rtsp_media_factory_set_shared ( GST_RTSP_MEDIA_FACTORY (factory), TRUE);

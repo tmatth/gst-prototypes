@@ -43,7 +43,7 @@ void attachInterruptHandlers()
 gboolean
 timeout (Client *client, gboolean /*ignored*/)
 {
-    g_object_set(client->rtpbin, "latency", 25, NULL);
+    g_object_set(client->rtpbin, "latency", 15, NULL);
     if (interrupted)
     {
         g_print("Interrupted\n");
@@ -102,7 +102,7 @@ int main (int argc, char *argv[])
     gst_init(&argc, &argv);
     Client client;
 
-    client.pipeline = gst_parse_launch("uridecodebin uri=rtsp://localhost:8554/test buffer-size=60 name=decode ! ffmpegcolorspace ! xvimagesink decode. ! audioconvert ! autoaudiosink buffer-time=15000", 0);
+    client.pipeline = gst_parse_launch("uridecodebin uri=rtsp://localhost:8554/test name=decode ! queue ! ffmpegcolorspace ! timeoverlay halignment=right ! xvimagesink decode. ! queue ! audioconvert ! autoaudiosink buffer-time=15000", 0);
 
     // add bus call
     GstBus *bus = gst_pipeline_get_bus(GST_PIPELINE(client.pipeline));
@@ -116,7 +116,8 @@ int main (int argc, char *argv[])
     int tries = 0;
     while (client.rtpbin == 0 and tries < 10)
     {
-        client.rtpbin = gst_bin_get_by_name (GST_BIN(client.pipeline), "rtpbin0");
+        client.rtpbin = gst_bin_get_by_name (GST_BIN(client.pipeline),
+                "rtpbin0");
         usleep(1000);
         tries++;
     }

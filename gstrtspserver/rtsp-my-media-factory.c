@@ -37,7 +37,7 @@ static void gst_rtsp_my_media_factory_set_property (GObject * object, guint prop
     const GValue * value, GParamSpec * pspec);
 static void gst_rtsp_my_media_factory_finalize (GObject * obj);
 static GstElement *
-my_get_element (GstRTSPMyMediaFactory * factory, const GstRTSPUrl * url);
+my_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url);
 
 G_DEFINE_TYPE (GstRTSPMyMediaFactory, gst_rtsp_my_media_factory, GST_TYPE_RTSP_MEDIA_FACTORY);
 
@@ -45,8 +45,10 @@ static void
 gst_rtsp_my_media_factory_class_init (GstRTSPMyMediaFactoryClass * klass)
 {
   GObjectClass *gobject_class;
+  GstRTSPMediaFactoryClass *gstrtspmediafactory_class;
 
-  gobject_class = G_OBJECT_CLASS (klass);
+  gobject_class = (GObjectClass *) klass;
+  gstrtspmediafactory_class = (GstRTSPMediaFactoryClass *) klass;
 
   gobject_class->get_property = gst_rtsp_my_media_factory_get_property;
   gobject_class->set_property = gst_rtsp_my_media_factory_set_property;
@@ -67,7 +69,7 @@ gst_rtsp_my_media_factory_class_init (GstRTSPMyMediaFactoryClass * klass)
       g_param_spec_object ("bin", "Bin", "Bin object used", 
           GST_TYPE_ELEMENT, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
-  klass->get_element = my_get_element;
+  gstrtspmediafactory_class->get_element = my_get_element;
 
   GST_DEBUG_CATEGORY_INIT (rtsp_my_media_debug, "rtspmymediafactory", 0,
       "GstRTSPMyMediaFactory");
@@ -195,18 +197,18 @@ gst_rtsp_media_factory_get_bin (GstRTSPMyMediaFactory * factory)
 }
 
 static GstElement *
-my_get_element (GstRTSPMyMediaFactory * factory, const GstRTSPUrl * url)
+my_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url)
 {
   GstElement *element;
   (void) url; // unused
 
   GST_RTSP_MY_MEDIA_FACTORY_LOCK (factory);
   /* we need a bin */
-  if (factory->bin == NULL)
+  if (GST_RTSP_MY_MEDIA_FACTORY(factory)->bin == NULL)
     goto no_bin;
 
   /* get the user provided bin */
-  element = GST_ELEMENT(factory->bin);
+  element = GST_ELEMENT(GST_RTSP_MY_MEDIA_FACTORY(factory)->bin);
 
   GST_RTSP_MY_MEDIA_FACTORY_UNLOCK (factory);
 

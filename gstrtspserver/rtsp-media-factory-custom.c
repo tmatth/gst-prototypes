@@ -18,8 +18,7 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#include <gst/rtsp-server/rtsp-media-factory.h>
-#include "rtsp-my-media-factory.h"
+#include "rtsp-media-factory-custom.h"
 
 enum
 {
@@ -28,21 +27,21 @@ enum
   PROP_LAST
 };
 
-GST_DEBUG_CATEGORY_STATIC (rtsp_my_media_debug);
-#define GST_CAT_DEFAULT rtsp_my_media_debug
+GST_DEBUG_CATEGORY_STATIC (rtsp_media_factory_custom_debug);
+#define GST_CAT_DEFAULT rtsp_media_factory_custom_debug
 
-static void gst_rtsp_my_media_factory_get_property (GObject * object, guint propid,
+static void gst_rtsp_media_factory_custom_get_property (GObject * object, guint propid,
     GValue * value, GParamSpec * pspec);
-static void gst_rtsp_my_media_factory_set_property (GObject * object, guint propid,
+static void gst_rtsp_media_factory_custom_set_property (GObject * object, guint propid,
     const GValue * value, GParamSpec * pspec);
-static void gst_rtsp_my_media_factory_finalize (GObject * obj);
+static void gst_rtsp_media_factory_custom_finalize (GObject * obj);
 static GstElement *
-my_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url);
+custom_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url);
 
-G_DEFINE_TYPE (GstRTSPMyMediaFactory, gst_rtsp_my_media_factory, GST_TYPE_RTSP_MEDIA_FACTORY);
+G_DEFINE_TYPE (GstRTSPMediaFactoryCustom, gst_rtsp_media_factory_custom, GST_TYPE_RTSP_MEDIA_FACTORY /*parent class*/);
 
 static void
-gst_rtsp_my_media_factory_class_init (GstRTSPMyMediaFactoryClass * klass)
+gst_rtsp_media_factory_custom_class_init (GstRTSPMediaFactoryCustomClass * klass)
 {
   GObjectClass *gobject_class;
   GstRTSPMediaFactoryClass *gstrtspmediafactory_class;
@@ -50,9 +49,9 @@ gst_rtsp_my_media_factory_class_init (GstRTSPMyMediaFactoryClass * klass)
   gobject_class = (GObjectClass *) klass;
   gstrtspmediafactory_class = (GstRTSPMediaFactoryClass *) klass;
 
-  gobject_class->get_property = gst_rtsp_my_media_factory_get_property;
-  gobject_class->set_property = gst_rtsp_my_media_factory_set_property;
-  gobject_class->finalize = gst_rtsp_my_media_factory_finalize;
+  gobject_class->get_property = gst_rtsp_media_factory_custom_get_property;
+  gobject_class->set_property = gst_rtsp_media_factory_custom_set_property;
+  gobject_class->finalize = gst_rtsp_media_factory_custom_finalize;
 
   /**
    * GstRTSPMediaFactory::bin
@@ -69,36 +68,36 @@ gst_rtsp_my_media_factory_class_init (GstRTSPMyMediaFactoryClass * klass)
       g_param_spec_object ("bin", "Bin", "Bin object used", 
           GST_TYPE_ELEMENT, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
-  gstrtspmediafactory_class->get_element = my_get_element;
+  gstrtspmediafactory_class->get_element = custom_get_element;
 
-  GST_DEBUG_CATEGORY_INIT (rtsp_my_media_debug, "rtspmymediafactory", 0,
-      "GstRTSPMyMediaFactory");
+  GST_DEBUG_CATEGORY_INIT (rtsp_media_factory_custom_debug, "rtspmediafactorycustom", 0,
+      "GstRTSPMediaFactoryCustom");
 }
 
 static void
-gst_rtsp_my_media_factory_init (GstRTSPMyMediaFactory * factory)
+gst_rtsp_media_factory_custom_init (GstRTSPMediaFactoryCustom * factory)
 {
   factory->bin = NULL;
   factory->lock = g_mutex_new ();
 }
 
 static void
-gst_rtsp_my_media_factory_finalize (GObject * obj)
+gst_rtsp_media_factory_custom_finalize (GObject * obj)
 {
-  GstRTSPMyMediaFactory *factory = GST_RTSP_MY_MEDIA_FACTORY (obj);
+  GstRTSPMediaFactoryCustom *factory = GST_RTSP_MEDIA_FACTORY_CUSTOM (obj);
 
   if (factory->bin)
       g_object_unref (factory->bin);
   g_mutex_free (factory->lock);
 
-  G_OBJECT_CLASS (gst_rtsp_my_media_factory_parent_class)->finalize (obj);
+  G_OBJECT_CLASS (gst_rtsp_media_factory_custom_parent_class)->finalize (obj);
 }
 
 static void
-gst_rtsp_my_media_factory_get_property (GObject * object, guint propid,
+gst_rtsp_media_factory_custom_get_property (GObject * object, guint propid,
     GValue * value, GParamSpec * pspec)
 {
-  GstRTSPMyMediaFactory *factory = GST_RTSP_MY_MEDIA_FACTORY (object);
+  GstRTSPMediaFactoryCustom *factory = GST_RTSP_MEDIA_FACTORY_CUSTOM (object);
 
   switch (propid) {
     case PROP_BIN:
@@ -110,14 +109,14 @@ gst_rtsp_my_media_factory_get_property (GObject * object, guint propid,
 }
 
 static void
-gst_rtsp_my_media_factory_set_property (GObject * object, guint propid,
+gst_rtsp_media_factory_custom_set_property (GObject * object, guint propid,
     const GValue * value, GParamSpec * pspec)
 {
-  GstRTSPMyMediaFactory *factory = GST_RTSP_MY_MEDIA_FACTORY (object);
+  GstRTSPMediaFactoryCustom *factory = GST_RTSP_MEDIA_FACTORY_CUSTOM (object);
 
   switch (propid) {
     case PROP_BIN:
-      gst_rtsp_my_media_factory_set_bin (factory, g_value_get_object (value));
+      gst_rtsp_media_factory_custom_set_bin (factory, g_value_get_object (value));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, propid, pspec);
@@ -125,25 +124,25 @@ gst_rtsp_my_media_factory_set_property (GObject * object, guint propid,
 }
 
 /**
- * gst_rtsp_my_media_factory_new:
+ * gst_rtsp_media_factory_custom_new:
  *
- * Create a new #GstRTSPMyMediaFactory instance.
+ * Create a new #GstRTSPMediaFactoryCustom instance.
  *
- * Returns: a new #GstRTSPMyMediaFactory object.
+ * Returns: a new #GstRTSPMediaFactoryCustom object.
  */
-GstRTSPMyMediaFactory *
-gst_rtsp_my_media_factory_new (void)
+GstRTSPMediaFactoryCustom *
+gst_rtsp_media_factory_custom_new (void)
 {
-  GstRTSPMyMediaFactory *result;
+  GstRTSPMediaFactoryCustom *result;
 
-  result = g_object_new (GST_TYPE_RTSP_MY_MEDIA_FACTORY, NULL);
+  result = g_object_new (GST_TYPE_RTSP_MEDIA_FACTORY_CUSTOM, NULL);
 
   return result;
 }
 
 /**
- * gst_rtsp_my_media_factory_set_bin:
- * @factory: a #GstRTSPMyMediaFactory
+ * gst_rtsp_media_factory_custom_set_bin:
+ * @factory: a #GstRTSPMediaFactoryCustom
  * @bin: the bin object
  *
  * The bin to use in the default prepare vmethod.
@@ -152,13 +151,13 @@ gst_rtsp_my_media_factory_new (void)
  * etc.. Each of the payloaders will result in a stream.
  */
 void
-gst_rtsp_my_media_factory_set_bin (GstRTSPMyMediaFactory * factory,
+gst_rtsp_media_factory_custom_set_bin (GstRTSPMediaFactoryCustom * factory,
     GstBin * bin)
 {
-  g_return_if_fail (GST_IS_RTSP_MY_MEDIA_FACTORY (factory));
+  g_return_if_fail (GST_IS_RTSP_MEDIA_FACTORY_CUSTOM (factory));
   g_return_if_fail (bin != NULL);
 
-  GST_RTSP_MY_MEDIA_FACTORY_LOCK (factory);
+  GST_RTSP_MEDIA_FACTORY_CUSTOM_LOCK (factory);
   if (bin != factory->bin) {
       GstBin *old;
 
@@ -170,12 +169,12 @@ gst_rtsp_my_media_factory_set_bin (GstRTSPMyMediaFactory * factory,
       if (old)
           gst_object_unref (old);
   }
-  GST_RTSP_MY_MEDIA_FACTORY_UNLOCK (factory);
+  GST_RTSP_MEDIA_FACTORY_CUSTOM_UNLOCK (factory);
 }
 
 /**
- * gst_rtsp_my_media_factory_get_bin:
- * @factory: a #GstRTSPMyMediaFactory
+ * gst_rtsp_media_factory_custom_get_bin:
+ * @factory: a #GstRTSPMediaFactoryCustom
  *
  * Get the bin that will be used in the
  * default prepare vmethod.
@@ -183,29 +182,29 @@ gst_rtsp_my_media_factory_set_bin (GstRTSPMyMediaFactory * factory,
  * Returns: the configured bin.
  */
 GstBin *
-gst_rtsp_media_factory_get_bin (GstRTSPMyMediaFactory * factory)
+gst_rtsp_media_factory_custom_get_bin (GstRTSPMediaFactoryCustom * factory)
 {
   GstBin *bin; 
 
-  g_return_val_if_fail (GST_IS_RTSP_MY_MEDIA_FACTORY (factory), NULL);
+  g_return_val_if_fail (GST_IS_RTSP_MEDIA_FACTORY_CUSTOM (factory), NULL);
 
-  GST_RTSP_MY_MEDIA_FACTORY_LOCK (factory);
+  GST_RTSP_MEDIA_FACTORY_CUSTOM_LOCK (factory);
   bin = factory->bin;
-  GST_RTSP_MY_MEDIA_FACTORY_UNLOCK (factory);
+  GST_RTSP_MEDIA_FACTORY_CUSTOM_UNLOCK (factory);
 
   return bin;
 }
 
 static GstElement *
-my_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url)
+custom_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url)
 {
   GstElement *element;
   GError *error = NULL;
   (void) url; // unused
 
-  GST_RTSP_MY_MEDIA_FACTORY_LOCK (factory);
+  GST_RTSP_MEDIA_FACTORY_CUSTOM_LOCK (factory);
   /* we need a bin */
-  if (GST_RTSP_MY_MEDIA_FACTORY(factory)->bin == NULL) {
+  if (GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin == NULL) {
       if (factory->launch == NULL)
           goto no_launch_or_bin;
       else {
@@ -216,9 +215,9 @@ my_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url)
       }
   }
   else /* get the user provided bin */
-      element = GST_ELEMENT(GST_RTSP_MY_MEDIA_FACTORY(factory)->bin);
+      element = GST_ELEMENT(GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin);
 
-  GST_RTSP_MY_MEDIA_FACTORY_UNLOCK (factory);
+  GST_RTSP_MEDIA_FACTORY_CUSTOM_UNLOCK (factory);
 
   if (error != NULL) {
     /* a recoverable error was encountered */
@@ -230,13 +229,13 @@ my_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url)
   /* ERRORS */
 no_launch_or_bin:
   {
-    GST_RTSP_MY_MEDIA_FACTORY_UNLOCK (factory);
+    GST_RTSP_MEDIA_FACTORY_CUSTOM_UNLOCK (factory);
     g_critical ("no launch line or bin specified");
     return NULL;
   }
 parse_error:
   {
-    GST_RTSP_MY_MEDIA_FACTORY_UNLOCK (factory);
+    GST_RTSP_MEDIA_FACTORY_CUSTOM_UNLOCK (factory);
     g_critical ("could not parse launch syntax (%s): %s", factory->launch,
         (error ? error->message : "unknown reason"));
     if (error)

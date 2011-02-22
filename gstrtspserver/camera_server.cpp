@@ -25,7 +25,7 @@
 #include <string>
 
 #include <gst/rtsp-server/rtsp-server.h>
-#include "rtsp-my-media-factory.h"
+#include "rtsp-media-factory-custom.h"
 
 namespace {
 volatile int interrupted = 0; // caught signals will be stored here
@@ -90,7 +90,7 @@ main (int argc, char *argv[])
    * gst-launch syntax to create pipelines. 
    * any launch line works as long as it contains elements named pay%d. Each
    * element with pay%d names will be a stream */
-  factory = GST_RTSP_MEDIA_FACTORY(gst_rtsp_my_media_factory_new());
+  factory = GST_RTSP_MEDIA_FACTORY(gst_rtsp_media_factory_custom_new());
   static const std::string launchLine("v4l2src ! video/x-raw-yuv,width=640,height=480,framerate=30/1,format=(fourcc)UYVY ! "
       "ffmpegcolorspace ! timeoverlay ! ffenc_mpeg4 bitrate=3000000 ! rtpmp4vpay name=pay0 pt=96 "
       "autoaudiosrc ! audioconvert ! rtpL16pay max-ptime=2000000 name=pay1");

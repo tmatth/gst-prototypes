@@ -8,8 +8,7 @@ all: camera_server test_client
 %.o : %.cpp %.c %.h
 	$(CXX) -c $(CXXFLAGS) $^ -o $@
  
-#rtsp-my-media-factory.o
-camera_server: camera_server.o rtsp-my-media-factory.o
+camera_server: camera_server.o rtsp-media-factory-custom.o
 	$(CXX) -Wall -g $(LDADD) $^ -o $@
 
 test_client: test-client.o

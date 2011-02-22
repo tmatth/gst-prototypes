@@ -180,7 +180,7 @@ gst_rtsp_my_media_factory_set_bin (GstRTSPMyMediaFactory * factory,
  * Get the bin that will be used in the
  * default prepare vmethod.
  *
- * Returns: the configured launch description. g_free() after usage.
+ * Returns: the configured bin.
  */
 GstBin *
 gst_rtsp_media_factory_get_bin (GstRTSPMyMediaFactory * factory)
@@ -200,25 +200,47 @@ static GstElement *
 my_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url)
 {
   GstElement *element;
+  GError *error = NULL;
   (void) url; // unused
 
   GST_RTSP_MY_MEDIA_FACTORY_LOCK (factory);
   /* we need a bin */
-  if (GST_RTSP_MY_MEDIA_FACTORY(factory)->bin == NULL)
-    goto no_bin;
-
-  /* get the user provided bin */
-  element = GST_ELEMENT(GST_RTSP_MY_MEDIA_FACTORY(factory)->bin);
+  if (GST_RTSP_MY_MEDIA_FACTORY(factory)->bin == NULL) {
+      if (factory->launch == NULL)
+          goto no_launch_or_bin;
+      else {
+          /* parse the user provided launch line */
+          element = gst_parse_launch (factory->launch, &error);
+          if (element == NULL)
+              goto parse_error;
+      }
+  }
+  else /* get the user provided bin */
+      element = GST_ELEMENT(GST_RTSP_MY_MEDIA_FACTORY(factory)->bin);
 
   GST_RTSP_MY_MEDIA_FACTORY_UNLOCK (factory);
 
+  if (error != NULL) {
+    /* a recoverable error was encountered */
+    GST_WARNING ("recoverable parsing error: %s", error->message);
+    g_error_free (error);
+  }
   return element;
 
   /* ERRORS */
-no_bin:
+no_launch_or_bin:
   {
     GST_RTSP_MY_MEDIA_FACTORY_UNLOCK (factory);
-    g_critical ("no bin specified");
+    g_critical ("no launch line or bin specified");
+    return NULL;
+  }
+parse_error:
+  {
+    GST_RTSP_MY_MEDIA_FACTORY_UNLOCK (factory);
+    g_critical ("could not parse launch syntax (%s): %s", factory->launch,
+        (error ? error->message : "unknown reason"));
+    if (error)
+      g_error_free (error);
     return NULL;
   }
 }

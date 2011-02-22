@@ -1,4 +1,5 @@
 /* GStreamer
+ * Copyright (C) 2011 Tristan Matthews <le.businessman at gmail.com>
  * Copyright (C) 2008 Wim Taymans <wim.taymans at gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -200,7 +201,7 @@ my_get_element (GstRTSPMyMediaFactory * factory, const GstRTSPUrl * url)
   (void) url; // unused
 
   GST_RTSP_MY_MEDIA_FACTORY_LOCK (factory);
-  /* we need a parse syntax */
+  /* we need a bin */
   if (factory->bin == NULL)
     goto no_bin;
 

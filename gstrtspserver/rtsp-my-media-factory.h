@@ -1,4 +1,5 @@
 /* GStreamer
+ * Copyright (C) 2011 Tristan Matthews <le.businessman at gmail.com>
  * Copyright (C) 2008 Wim Taymans <wim.taymans at gmail.com>
  *
  * This library is free software; you can redistribute it and/or

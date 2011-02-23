@@ -18,6 +18,7 @@
  * Boston, MA 02111-1307, USA.
  */
 
+#include <gst/rtsp-server/rtsp-media-factory.h>
 #include "rtsp-media-factory-custom.h"
 
 enum
@@ -54,7 +55,7 @@ gst_rtsp_media_factory_custom_class_init (GstRTSPMediaFactoryCustomClass * klass
   gobject_class->finalize = gst_rtsp_media_factory_custom_finalize;
 
   /**
-   * GstRTSPMediaFactory::bin
+   * GstRTSPMediaFactoryCustom::bin
    *
    * The bin used in the default prepare vmethod.
    *
@@ -78,7 +79,7 @@ static void
 gst_rtsp_media_factory_custom_init (GstRTSPMediaFactoryCustom * factory)
 {
   factory->bin = NULL;
-  factory->lock = g_mutex_new ();
+  factory->bin_lock = g_mutex_new ();
 }
 
 static void
@@ -87,8 +88,8 @@ gst_rtsp_media_factory_custom_finalize (GObject * obj)
   GstRTSPMediaFactoryCustom *factory = GST_RTSP_MEDIA_FACTORY_CUSTOM (obj);
 
   if (factory->bin)
-      g_object_unref (factory->bin);
-  g_mutex_free (factory->lock);
+      gst_object_unref (factory->bin);
+  g_mutex_free (factory->bin_lock);
 
   G_OBJECT_CLASS (gst_rtsp_media_factory_custom_parent_class)->finalize (obj);
 }
@@ -101,7 +102,7 @@ gst_rtsp_media_factory_custom_get_property (GObject * object, guint propid,
 
   switch (propid) {
     case PROP_BIN:
-      g_value_set_object (value, factory->bin);
+      g_value_set_object (value, gst_rtsp_media_factory_custom_get_bin(factory));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, propid, pspec);
@@ -152,20 +153,25 @@ gst_rtsp_media_factory_custom_new (void)
  */
 void
 gst_rtsp_media_factory_custom_set_bin (GstRTSPMediaFactoryCustom * factory,
-    GstBin * bin)
+    GstElement * bin)
 {
+  GstElement *old;
+
   g_return_if_fail (GST_IS_RTSP_MEDIA_FACTORY_CUSTOM (factory));
   g_return_if_fail (bin != NULL);
 
-  GST_RTSP_MEDIA_FACTORY_CUSTOM_LOCK (factory);
-  if (bin != factory->bin) {
-      if (factory->bin)
-          gst_object_unref (factory->bin);
+  g_mutex_lock (factory->bin_lock);
+
+  old = factory->bin;
+
+  if (old != bin) {
+      if (bin)
+          gst_object_ref (bin);
       factory->bin = bin;
-      if (factory->bin)
-          gst_object_ref (factory->bin);
+      if (old)
+          gst_object_unref (old);
   }
-  GST_RTSP_MEDIA_FACTORY_CUSTOM_UNLOCK (factory);
+  g_mutex_unlock (factory->bin_lock);
 }
 
 /**
@@ -177,16 +183,19 @@ gst_rtsp_media_factory_custom_set_bin (GstRTSPMediaFactoryCustom * factory,
  *
  * Returns: the configured bin.
  */
-GstBin *
+GstElement *
 gst_rtsp_media_factory_custom_get_bin (GstRTSPMediaFactoryCustom * factory)
 {
-  GstBin *bin; 
+  GstElement *bin; 
 
   g_return_val_if_fail (GST_IS_RTSP_MEDIA_FACTORY_CUSTOM (factory), NULL);
 
-  GST_RTSP_MEDIA_FACTORY_CUSTOM_LOCK (factory);
-  bin = factory->bin;
-  GST_RTSP_MEDIA_FACTORY_CUSTOM_UNLOCK (factory);
+  g_mutex_lock (factory->bin_lock);
+
+  if ((bin = factory->bin))
+      gst_object_ref (bin);
+
+  g_mutex_unlock (factory->bin_lock);
 
   return bin;
 }
@@ -198,7 +207,8 @@ custom_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url)
   GError *error = NULL;
   (void) url; // unused
 
-  GST_RTSP_MEDIA_FACTORY_CUSTOM_LOCK (factory);
+  g_mutex_lock (GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin_lock);
+
   /* we need a bin */
   if (GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin == NULL) {
       if (factory->launch == NULL)
@@ -211,9 +221,9 @@ custom_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url)
       }
   }
   else /* get the user provided bin */
-      element = GST_ELEMENT(GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin);
-
-  GST_RTSP_MEDIA_FACTORY_CUSTOM_UNLOCK (factory);
+      element = GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin;
+    
+  g_mutex_unlock (GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin_lock);
 
   if (error != NULL) {
     /* a recoverable error was encountered */
@@ -225,13 +235,13 @@ custom_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url)
   /* ERRORS */
 no_launch_or_bin:
   {
-    GST_RTSP_MEDIA_FACTORY_CUSTOM_UNLOCK (factory);
+    g_mutex_unlock (GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin_lock);
     g_critical ("no launch line or bin specified");
     return NULL;
   }
 parse_error:
   {
-    GST_RTSP_MEDIA_FACTORY_CUSTOM_UNLOCK (factory);
+    g_mutex_unlock (GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin_lock);
     g_critical ("could not parse launch syntax (%s): %s", factory->launch,
         (error ? error->message : "unknown reason"));
     if (error)

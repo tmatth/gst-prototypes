@@ -91,16 +91,17 @@ main (int argc, char *argv[])
    * any launch line works as long as it contains elements named pay%d. Each
    * element with pay%d names will be a stream */
   factory = GST_RTSP_MEDIA_FACTORY(gst_rtsp_media_factory_custom_new());
+
+  // allow multiple clients to see the same video
+  gst_rtsp_media_factory_set_shared (factory, TRUE);
+
   static const std::string launchLine("( v4l2src ! video/x-raw-yuv,width=640,height=480,framerate=30/1,format=(fourcc)UYVY ! "
       "ffmpegcolorspace ! timeoverlay ! ffenc_mpeg4 bitrate=3000000 ! rtpmp4vpay name=pay0 pt=96 "
       "autoaudiosrc ! audioconvert ! rtpL16pay max-ptime=2000000 name=pay1 )");
 
   GstElement *pipeline = gst_parse_launch(launchLine.c_str(), 0);
 
-  g_object_set(factory, "bin", GST_BIN(pipeline), NULL);
-
-  // allow multiple clients to see the same video
-  gst_rtsp_media_factory_set_shared (factory, TRUE);
+  g_object_set(factory, "bin", pipeline, NULL);
 
   /* attach the test factory to the /test url */
   gst_rtsp_media_mapping_add_factory (mapping, "/test", factory);

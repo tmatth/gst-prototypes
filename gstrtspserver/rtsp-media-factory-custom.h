@@ -41,23 +41,18 @@ G_BEGIN_DECLS
 typedef struct _GstRTSPMediaFactoryCustom GstRTSPMediaFactoryCustom;
 typedef struct _GstRTSPMediaFactoryCustomClass GstRTSPMediaFactoryCustomClass;
 
-#define GST_RTSP_MEDIA_FACTORY_CUSTOM_GET_LOCK(f)       (GST_RTSP_MEDIA_FACTORY_CUSTOM_CAST(f)->lock)
-#define GST_RTSP_MEDIA_FACTORY_CUSTOM_LOCK(f)           (g_mutex_lock(GST_RTSP_MEDIA_FACTORY_CUSTOM_GET_LOCK(f)))
-#define GST_RTSP_MEDIA_FACTORY_CUSTOM_UNLOCK(f)         (g_mutex_unlock(GST_RTSP_MEDIA_FACTORY_CUSTOM_GET_LOCK(f)))
-
 /**
  * GstRTSPMediaFactoryCustom:
- * @lock: mutex protecting the datastructure.
  * @bin: the bin used for streaming
- * @shared: if media from this factory can be shared between clients
+ * @bin_lock: mutex protecting the bin.
  *
  * The definition and logic for constructing the pipeline for a media. The media
  * can contain multiple streams like audio and video.
  */
 struct _GstRTSPMediaFactoryCustom {
   GstRTSPMediaFactory parent;
-  GMutex       *lock;
-  GstBin        *bin;
+  GstElement  *bin;
+  GMutex *bin_lock;
 };
 
 /**
@@ -71,8 +66,6 @@ struct _GstRTSPMediaFactoryCustom {
  */
 struct _GstRTSPMediaFactoryCustomClass {
   GstRTSPMediaFactoryClass  parent_class;
-
-  GstElement *      (*get_element)    (GstRTSPMediaFactoryCustom *factory, const GstRTSPUrl *url);
 };
 
 GType                 gst_rtsp_media_factory_custom_get_type        (void);
@@ -82,8 +75,8 @@ GstRTSPMediaFactoryCustom * gst_rtsp_media_factory_custom_new           (void);
 
 /* configuring the factory */
 void                  gst_rtsp_media_factory_custom_set_bin (GstRTSPMediaFactoryCustom *factory,
-                                                           GstBin *bin);
-GstBin *              gst_rtsp_media_factory_custom_get_bin (GstRTSPMediaFactoryCustom *factory);
+                                                           GstElement *bin);
+GstElement *          gst_rtsp_media_factory_custom_get_bin (GstRTSPMediaFactoryCustom *factory);
 
 G_END_DECLS
 

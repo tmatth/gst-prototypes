@@ -159,15 +159,11 @@ gst_rtsp_media_factory_custom_set_bin (GstRTSPMediaFactoryCustom * factory,
 
   GST_RTSP_MEDIA_FACTORY_CUSTOM_LOCK (factory);
   if (bin != factory->bin) {
-      GstBin *old;
-
-      old = factory->bin;
-      if (bin)
-          gst_object_ref_sink (bin);
-
+      if (factory->bin)
+          gst_object_unref (factory->bin);
       factory->bin = bin;
-      if (old)
-          gst_object_unref (old);
+      if (factory->bin)
+          gst_object_ref (factory->bin);
   }
   GST_RTSP_MEDIA_FACTORY_CUSTOM_UNLOCK (factory);
 }

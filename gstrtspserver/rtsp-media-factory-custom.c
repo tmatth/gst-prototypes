@@ -18,7 +18,6 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#include <gst/rtsp-server/rtsp-media-factory.h>
 #include "rtsp-media-factory-custom.h"
 
 enum
@@ -201,11 +200,14 @@ gst_rtsp_media_factory_custom_get_bin (GstRTSPMediaFactoryCustom * factory)
 static GstElement *
 custom_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url)
 {
-  GstElement *element;
+  GstElement *topbin, *element;
   GError *error = NULL;
   (void) url; // unused
 
   g_mutex_lock (factory->lock);
+  
+  topbin = gst_bin_new ("GstRTSPMediaFactoryCustom");
+  g_assert (topbin != NULL);
 
   /* we need a bin */
   if (GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin == NULL) {
@@ -220,6 +222,8 @@ custom_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url)
   }
   else /* get the user provided bin */
       element = GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin;
+
+  gst_bin_add (GST_BIN_CAST (topbin), element);
     
   g_mutex_unlock (factory->lock);
 
@@ -228,7 +232,7 @@ custom_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url)
     GST_WARNING ("recoverable parsing error: %s", error->message);
     g_error_free (error);
   }
-  return element;
+  return topbin;
 
   /* ERRORS */
 no_launch_or_bin:

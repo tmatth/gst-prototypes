@@ -79,7 +79,6 @@ static void
 gst_rtsp_media_factory_custom_init (GstRTSPMediaFactoryCustom * factory)
 {
   factory->bin = NULL;
-  factory->bin_lock = g_mutex_new ();
 }
 
 static void
@@ -89,7 +88,6 @@ gst_rtsp_media_factory_custom_finalize (GObject * obj)
 
   if (factory->bin)
       gst_object_unref (factory->bin);
-  g_mutex_free (factory->bin_lock);
 
   G_OBJECT_CLASS (gst_rtsp_media_factory_custom_parent_class)->finalize (obj);
 }
@@ -160,7 +158,7 @@ gst_rtsp_media_factory_custom_set_bin (GstRTSPMediaFactoryCustom * factory,
   g_return_if_fail (GST_IS_RTSP_MEDIA_FACTORY_CUSTOM (factory));
   g_return_if_fail (bin != NULL);
 
-  g_mutex_lock (factory->bin_lock);
+  g_mutex_lock (GST_RTSP_MEDIA_FACTORY(factory)->lock);
 
   old = factory->bin;
 
@@ -171,7 +169,7 @@ gst_rtsp_media_factory_custom_set_bin (GstRTSPMediaFactoryCustom * factory,
       if (old)
           gst_object_unref (old);
   }
-  g_mutex_unlock (factory->bin_lock);
+  g_mutex_unlock (GST_RTSP_MEDIA_FACTORY(factory)->lock);
 }
 
 /**
@@ -190,12 +188,12 @@ gst_rtsp_media_factory_custom_get_bin (GstRTSPMediaFactoryCustom * factory)
 
   g_return_val_if_fail (GST_IS_RTSP_MEDIA_FACTORY_CUSTOM (factory), NULL);
 
-  g_mutex_lock (factory->bin_lock);
+  g_mutex_lock (GST_RTSP_MEDIA_FACTORY(factory)->lock);
 
   if ((bin = factory->bin))
       gst_object_ref (bin);
 
-  g_mutex_unlock (factory->bin_lock);
+  g_mutex_unlock (GST_RTSP_MEDIA_FACTORY(factory)->lock);
 
   return bin;
 }
@@ -207,7 +205,7 @@ custom_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url)
   GError *error = NULL;
   (void) url; // unused
 
-  g_mutex_lock (GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin_lock);
+  g_mutex_lock (factory->lock);
 
   /* we need a bin */
   if (GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin == NULL) {
@@ -223,7 +221,7 @@ custom_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url)
   else /* get the user provided bin */
       element = GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin;
     
-  g_mutex_unlock (GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin_lock);
+  g_mutex_unlock (factory->lock);
 
   if (error != NULL) {
     /* a recoverable error was encountered */
@@ -235,13 +233,13 @@ custom_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url)
   /* ERRORS */
 no_launch_or_bin:
   {
-    g_mutex_unlock (GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin_lock);
+    g_mutex_unlock (factory->lock);
     g_critical ("no launch line or bin specified");
     return NULL;
   }
 parse_error:
   {
-    g_mutex_unlock (GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin_lock);
+    g_mutex_unlock (factory->lock);
     g_critical ("could not parse launch syntax (%s): %s", factory->launch,
         (error ? error->message : "unknown reason"));
     if (error)

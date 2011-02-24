@@ -44,7 +44,6 @@ typedef struct _GstRTSPMediaFactoryCustomClass GstRTSPMediaFactoryCustomClass;
 /**
  * GstRTSPMediaFactoryCustom:
  * @bin: the bin used for streaming
- * @bin_lock: mutex protecting the bin.
  *
  * The definition and logic for constructing the pipeline for a media. The media
  * can contain multiple streams like audio and video.
@@ -52,7 +51,6 @@ typedef struct _GstRTSPMediaFactoryCustomClass GstRTSPMediaFactoryCustomClass;
 struct _GstRTSPMediaFactoryCustom {
   GstRTSPMediaFactory parent;
   GstElement  *bin;
-  GMutex *bin_lock;
 };
 
 /**

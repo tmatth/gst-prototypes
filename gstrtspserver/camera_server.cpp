@@ -20,7 +20,6 @@
  */
 
 #include <gst/gst.h>
-#include <gtk/gtk.h>
 #include <signal.h>
 #include <string>
 
@@ -41,6 +40,11 @@ void attachInterruptHandlers()
     signal(SIGTERM, &terminateSignalHandler);
 }
 
+struct Data {
+    GstRTSPServer *server;
+    GMainLoop *loop;
+};
+
 void cleanSessions(GstRTSPServer *server)
 {
   GstRTSPSessionPool *pool;
@@ -54,16 +58,21 @@ void cleanSessions(GstRTSPServer *server)
  * pool. This needs to be run explicitly currently but might be done
  * automatically as part of the mainloop. */
 gboolean
-timeout (GstRTSPServer * server, gboolean /*ignored*/)
+timeout (Data *data, gboolean /*ignored*/)
 {
-  cleanSessions(server);
-
+  gboolean result = FALSE;
   if (interrupted)
   {
       g_print("Interrupted, quitting...\n");
-      gtk_main_quit();
+      if (data->loop)
+          g_main_loop_quit(data->loop);
   }
-  return TRUE;
+  else
+  {
+      cleanSessions(data->server);
+      result = TRUE;
+  }
+  return result;
 }
 
 } // end anonymous namespace
@@ -73,18 +82,24 @@ main (int argc, char *argv[])
 {
   attachInterruptHandlers();
 
-  GstRTSPServer *server;
+  Data data;
   GstRTSPMediaMapping *mapping;
   GstRTSPMediaFactory *factory;
 
   gst_init (&argc, &argv);
 
+
+  /* create the main loop */
+  data.loop = g_main_loop_new (NULL, FALSE);
   /* create a server instance */
-  server = gst_rtsp_server_new ();
+  data.server = gst_rtsp_server_new ();
 
   /* get the mapping for this server, every server has a default mapper object
    * that be used to map uri mount points to media factories */
-  mapping = gst_rtsp_server_get_media_mapping (server);
+  mapping = gst_rtsp_server_get_media_mapping (data.server);
+  /* don't need the ref to the mapper anymore */
+  g_object_unref (mapping);
+
 
   /* make a media factory for a test stream. The default media factory can use
    * gst-launch syntax to create pipelines. 
@@ -97,7 +112,7 @@ main (int argc, char *argv[])
 
   static const std::string launchLine("( v4l2src ! video/x-raw-yuv,width=640,height=480,framerate=30/1,format=(fourcc)UYVY ! "
       "ffmpegcolorspace ! timeoverlay ! ffenc_mpeg4 bitrate=3000000 ! rtpmp4vpay name=pay0 pt=96 "
-      "autoaudiosrc ! audioconvert ! rtpL16pay max-ptime=2000000 name=pay1 )");
+      "autoaudiosrc ! audioconvert ! rtpL16pay max-ptime=2000000 name=pay1 pt=97 )");
 
   GstElement *pipeline = gst_parse_launch(launchLine.c_str(), 0);
 
@@ -106,29 +121,24 @@ main (int argc, char *argv[])
   /* attach the test factory to the /test url */
   gst_rtsp_media_mapping_add_factory (mapping, "/test", factory);
 
-  /* don't need the ref to the mapper anymore */
-  g_object_unref (mapping);
-
   guint id;
   /* attach the server to the default maincontext */
-  if ((id = gst_rtsp_server_attach (server, NULL)) == 0)
+  if ((id = gst_rtsp_server_attach (data.server, g_main_loop_get_context(data.loop))) == 0)
   {
     g_print ("failed to attach the server\n");
     return -1;
   }
 
   /* add a timeout for the session cleanup */
-  g_timeout_add_seconds(1, (GSourceFunc) timeout, server);
+  g_timeout_add_seconds(1, (GSourceFunc) timeout, &data);
 
   /* start serving, this never stops */
-  gtk_main();
+  g_main_loop_run (data.loop);
 
   // cleanup
   
-  cleanSessions(server);
-
-  g_source_remove(id);
-  g_object_unref(server);
+  //g_source_remove(id);
+  g_object_unref(data.server);
   g_print("Exitting...\n");
 
   return 0;

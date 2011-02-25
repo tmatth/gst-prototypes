@@ -21,6 +21,7 @@
 #include <unistd.h>
 
 struct Client {
+    Client () : pipeline(0), rtpbin(0), loop(0) {}
     GstElement *pipeline;
     GstElement *rtpbin;
     GMainLoop *loop;
@@ -43,11 +44,12 @@ void attachInterruptHandlers()
 gboolean
 timeout (Client *client, gboolean /*ignored*/)
 {
-    g_object_set(client->rtpbin, "latency", 15, NULL);
     if (interrupted)
     {
         g_print("Interrupted\n");
-        g_main_loop_quit(client->loop);
+        if (client->loop)
+            g_main_loop_quit(client->loop);
+        return FALSE;
     }
     return TRUE;
 }
@@ -55,13 +57,21 @@ timeout (Client *client, gboolean /*ignored*/)
 gboolean bus_call(GstBus * /*bus*/, GstMessage *msg, void *user_data)
 {
     Client *context = static_cast<Client*>(user_data);
+    if (interrupted)
+    {
+        g_print("Interrupted\n");
+        if (context->loop)
+            g_main_loop_quit(context->loop);
+        return FALSE;
+    }
 
     switch (GST_MESSAGE_TYPE(msg)) 
     {
         case GST_MESSAGE_EOS: 
             {
                 g_message("End-of-stream");
-                g_main_loop_quit(context->loop);
+                if (context->loop)
+                    g_main_loop_quit(context->loop);
                 break;
             }
 
@@ -69,11 +79,14 @@ gboolean bus_call(GstBus * /*bus*/, GstMessage *msg, void *user_data)
             {
                 // when pipeline latency is changed, this msg is posted on the bus. we then have
                 // to explicitly tell the pipeline to recalculate its latency
+                // FIXME: this never works!
+#if 0
                 if (!gst_bin_recalculate_latency (GST_BIN(context->pipeline)))
                     g_print("Could not reconfigure latency.\n");
                 else
                     g_print("Reconfigured latency.\n");
                 break;
+#endif
             }
         case GST_MESSAGE_ERROR: 
             {
@@ -82,7 +95,8 @@ gboolean bus_call(GstBus * /*bus*/, GstMessage *msg, void *user_data)
                 g_error("%s", err->message);
                 g_error_free(err);
 
-                g_main_loop_quit(context->loop);
+                if (context->loop)
+                    g_main_loop_quit(context->loop);
 
                 break;
 
@@ -111,7 +125,6 @@ int main (int argc, char *argv[])
 
     /* run */
     GstStateChangeReturn ret = gst_element_set_state (client.pipeline, GST_STATE_PLAYING);
-    client.rtpbin = 0;
 
     int tries = 0;
     while (client.rtpbin == 0 and tries < 10)
@@ -132,6 +145,8 @@ int main (int argc, char *argv[])
 
     /* add a timeout to check the interrupted variable */
     g_timeout_add_seconds(1, (GSourceFunc) timeout, &client);
+    
+    g_object_set(client.rtpbin, "latency", 15, NULL);
 
     /* start loop */
     g_main_loop_run (client.loop);

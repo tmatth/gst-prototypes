@@ -67,6 +67,21 @@ gboolean bus_call(GstBus * /*bus*/, GstMessage *msg, void *user_data)
 
     switch (GST_MESSAGE_TYPE(msg)) 
     {
+        case GST_MESSAGE_ERROR: 
+            {
+                GError *err;
+                gchar *debug;
+                gst_message_parse_error(msg, &err, &debug);
+                g_print("GOT ERROR %s\n", err->message);
+                g_error_free(err);
+                g_free (debug);
+
+                if (context->loop)
+                    g_main_loop_quit(context->loop);
+
+                return FALSE;
+            }
+
         case GST_MESSAGE_EOS: 
             {
                 g_message("End-of-stream");
@@ -87,21 +102,8 @@ gboolean bus_call(GstBus * /*bus*/, GstMessage *msg, void *user_data)
                     g_print("Reconfigured latency.\n");
                 break;
 #endif
-            }
-        case GST_MESSAGE_ERROR: 
-            {
-                GError *err;
-                gst_message_parse_error(msg, &err, NULL);
-                g_error("%s", err->message);
-                g_error_free(err);
-
-                if (context->loop)
-                    g_main_loop_quit(context->loop);
-
                 break;
-
             }
-
         default:
             break;
     }

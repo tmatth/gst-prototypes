@@ -30,7 +30,14 @@ namespace {
 volatile int interrupted = 0; // caught signals will be stored here
 void terminateSignalHandler(int sig)
 {
+    static int timesCalled = 1;
+    if (timesCalled > 1)
+    {
+        g_print("Interrupted again, exitting rudely!\n"); 
+        exit(EXIT_FAILURE);
+    }
     interrupted = sig;
+    timesCalled++;
 }
 
 void attachInterruptHandlers()
@@ -111,8 +118,8 @@ main (int argc, char *argv[])
   gst_rtsp_media_factory_set_shared (factory, TRUE);
 
   static const std::string launchLine("( v4l2src ! video/x-raw-yuv,width=640,height=480,framerate=30/1,format=(fourcc)UYVY ! "
-      "ffmpegcolorspace ! timeoverlay ! ffenc_mpeg4 bitrate=3000000 ! rtpmp4vpay name=pay0 pt=96 "
-      "autoaudiosrc ! audioconvert ! rtpL16pay max-ptime=2000000 name=pay1 pt=97 )");
+      "ffmpegcolorspace ! timeoverlay ! queue ! ffenc_mpeg4 bitrate=3000000 ! rtpmp4vpay name=pay0 pt=96 "
+      "autoaudiosrc ! queue ! audioconvert ! rtpL16pay max-ptime=2000000 name=pay1 pt=97 )");
 
   GstElement *pipeline = gst_parse_launch(launchLine.c_str(), 0);
 

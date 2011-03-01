@@ -19,7 +19,6 @@
  */
 
 #include <gst/gst.h>
-#include <gst/rtsp/gstrtspurl.h>
 
 #include <gst/rtsp-server/rtsp-media-factory.h>
 

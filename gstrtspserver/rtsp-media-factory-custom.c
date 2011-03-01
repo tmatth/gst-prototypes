@@ -152,22 +152,17 @@ void
 gst_rtsp_media_factory_custom_set_bin (GstRTSPMediaFactoryCustom * factory,
     GstElement * bin)
 {
-  GstElement *old;
-
   g_return_if_fail (GST_IS_RTSP_MEDIA_FACTORY_CUSTOM (factory));
   g_return_if_fail (bin != NULL);
 
   g_mutex_lock (GST_RTSP_MEDIA_FACTORY(factory)->lock);
 
-  old = factory->bin;
+  if (factory->bin)
+      gst_object_unref (factory->bin);
+  if (bin)
+      gst_object_ref (bin);
+  factory->bin = bin;
 
-  if (old != bin) {
-      if (bin)
-          gst_object_ref (bin);
-      factory->bin = bin;
-      if (old)
-          gst_object_unref (old);
-  }
   g_mutex_unlock (GST_RTSP_MEDIA_FACTORY(factory)->lock);
 }
 
@@ -222,7 +217,7 @@ custom_get_element (GstRTSPMediaFactory * factory, const GstRTSPUrl * url)
   }
   else /* get the user provided bin */
       element = GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin;
-
+  
   gst_bin_add (GST_BIN_CAST (topbin), element);
     
   g_mutex_unlock (factory->lock);
@@ -251,3 +246,4 @@ parse_error:
     return NULL;
   }
 }
+

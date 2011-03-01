@@ -124,7 +124,7 @@ main (int argc, char *argv[])
   GError *error = NULL;
   GstElement *pipeline = gst_parse_launch(launchLine.c_str(), &error);
   if (pipeline == NULL)
-      g_critical ("could not parse launch syntax (%s): %s", factory->launch,
+      g_critical ("could not parse launch syntax (%s): %s", launchLine.c_str(),
               (error ? error->message : "unknown reason"));
   if (error)
       g_error_free (error);

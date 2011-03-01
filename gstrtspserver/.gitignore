@@ -1,0 +1,5 @@
+camera_server
+camera_server.o
+rtsp-media-factory-custom.o
+test-client.o
+test_client

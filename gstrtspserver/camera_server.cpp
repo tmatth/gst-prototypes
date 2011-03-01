@@ -121,7 +121,13 @@ main (int argc, char *argv[])
       "ffmpegcolorspace ! timeoverlay ! queue ! ffenc_mpeg4 bitrate=3000000 ! rtpmp4vpay name=pay0 pt=96 "
       "autoaudiosrc ! queue ! audioconvert ! rtpL16pay max-ptime=2000000 name=pay1 pt=97 )");
 
-  GstElement *pipeline = gst_parse_launch(launchLine.c_str(), 0);
+  GError *error = NULL;
+  GstElement *pipeline = gst_parse_launch(launchLine.c_str(), &error);
+  if (pipeline == NULL)
+      g_critical ("could not parse launch syntax (%s): %s", factory->launch,
+              (error ? error->message : "unknown reason"));
+  if (error)
+      g_error_free (error);
 
   g_object_set(factory, "bin", pipeline, NULL);
 

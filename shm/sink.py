@@ -42,7 +42,7 @@ class Pipeline(object):
         videotestsrc = gst.element_factory_make('videotestsrc')
         shmsink = gst.element_factory_make('shmsink')
         shmsink.set_property('socket-path', 'test_shm')
-        shmsink.set_property('shm-size', 2 ** 20)
+        shmsink.set_property('shm-size', 2 ** 30)
         shmsink.get_pad('sink').connect('notify::caps', self._onNotifyCaps)
         self._pipeline.add(videotestsrc, shmsink)
         gst.element_link_many(videotestsrc, shmsink)

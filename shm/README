@@ -1,0 +1,14 @@
+This example consists of two small python programs: sink.py and src.py. The
+script sink.py creates a pipeline consisting of a videotestsrc going into a
+shmsink. This script should be started first. It will write its output caps
+to a file (named 'caps.txt') that the second script will read in order to know
+what media it will find in the shared memory segment.
+
+The shared memory segment is called 'test_shm'. When sink.py is running, it
+will appear in the current working directory. If the input in sink.py is
+changed to some larger media, the 'shm-size' property of the shmsink element
+should be increased accordingly.
+
+sink.py                    src.py
+------                     ------
+videotestsrc-->shmsink     shmsrc->identity->xvimagesink
